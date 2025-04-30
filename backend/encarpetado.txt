@@ -1,0 +1,12 @@
+backend/  
+├── app/  
+│   ├── core/              # Configuración, seguridad, utilidades  
+│   ├── models/            # Modelos de PostgreSQL (SQLAlchemy)  
+│   ├── schemas/           # Esquemas de validación (Pydantic)  
+│   ├── routes/            # Endpoints: auth, meditaciones, IA, etc.  
+│   ├── services/          # Lógica de negocio (stats, notificaciones, IA)  
+│   └── utils/             # Helpers (envío de emails, notificaciones)  
+├── tests/                 # Pruebas 
+├── docker-compose.yml    # Orquestación de contenedores
+├── Dockerfile            # Configuración del contenedor FastAPI 
+└── requirements.txt       # Dependencias  

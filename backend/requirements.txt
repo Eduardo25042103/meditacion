@@ -1,0 +1,31 @@
+# Backend principal
+fastapi==0.109.1
+uvicorn==0.27.0
+
+# Base de datos - ORM
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+alembic==1.13.1
+
+# Auth y seguridad
+python-jose==3.3.0
+passlib==1.7.4
+bcrypt==4.1.2
+
+# IA y recomendaciones(estadísticas)
+scikit-learn==1.4.0
+nltk==3.8.1
+pandas==2.1.4
+
+# Tareas asíncronas (notificaciones)
+celery==5.3.6
+redis==4.6.0
+
+# Variables de entorno
+python-dotenv==1.0.0
+
+# Validación de datos
+pydantic==2.6.1
+
+# Docker 
+docker==6.1.3
