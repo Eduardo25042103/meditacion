@@ -10,3 +10,9 @@ backend/
 ├── docker-compose.yml    # Orquestación de contenedores
 ├── Dockerfile            # Configuración del contenedor FastAPI 
 └── requirements.txt       # Dependencias  
+
+
+
+----------------------------------------
+Pasos para configurar el backend:
+alembic init migrations
