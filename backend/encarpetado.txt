@@ -11,8 +11,17 @@ backend/
 ├── Dockerfile            # Configuración del contenedor FastAPI 
 └── requirements.txt       # Dependencias  
 
-
+----------------------------------------
+Tecnología:
+FastAPI: Para APIs rápidas y documentación automática (Swagger/OpenAPI).
+PostgreSQL: Base de datos relacional (usaremos SQLAlchemy como ORM).
+AI: Scikit-learn o NLTK (para recomendaciones básicas basadas en preferencias o estado de ánimo).
+Autenticación: JWT (JSON Web Tokens) para sessions.
+Notificaciones: Celery + Redis (tareas asíncronas para emails/recordatorios).
+Stats/Graphs: Pandas para análisis y Matplotlib/Plotly para gráficos.
 
 ----------------------------------------
 Pasos para configurar el backend:
 alembic init migrations
+docker-compose up --build
+

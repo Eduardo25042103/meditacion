@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, ARRAY
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+from datetime import datetime
 
 class User(Base):
     __tablename__ = "users"
@@ -8,7 +9,7 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
     sessions = relationship("MeditationSession", back_populates="user")
     stats = relationship("UserStats", back_populates="user", uselist=False)
     preferences = relationship("UserPreferences", back_populates="user", uselist=False)
@@ -30,7 +31,7 @@ class Meditation(Base):
     title = Column(String)
     duration = Column(Integer) #en mins
     difficulty = Column(String) #"beginner", "Intermediate", "advanced"
-    type_id = Column(Integer, ForeignKey("medidation_types.id"))
+    type_id = Column(Integer, ForeignKey("meditation_types.id"))
     meditation_type = relationship("MeditationType", back_populates="meditations")
     sessions = relationship("MeditationSession", back_populates="meditation")
 
