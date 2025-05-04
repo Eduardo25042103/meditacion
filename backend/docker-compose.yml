@@ -6,7 +6,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      - .:/app
     depends_on:
       - db
       - redis
@@ -18,9 +18,10 @@ services:
     container_name: postgres_db
     restart: always
     environment:
-      POSTGRES_USER: fastapi_user
-      POSTGRES_PASSWORD: fastapi_pass
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: macavuelve
       POSTGRES_DB: meditation_db
+    command: ["postgres", "-c", "listen_addresses=*"]
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:

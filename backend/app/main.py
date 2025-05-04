@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+
 # Importar routers (los agregaremos luego)
+from app.routes import auth
 # from app.routes import auth, meditations, users, etc
 
 app = FastAPI(
@@ -25,7 +27,7 @@ def root():
     return {"message": "🧘‍♀️ Bienvenido a la API de meditación"}
 
 # Montar routers acá
-# app.include_router(auth.router, prefix="/auth")
+app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 # app.include_router(meditations.router, prefix="/meditations")
 
 

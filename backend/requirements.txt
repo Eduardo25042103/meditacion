@@ -26,6 +26,7 @@ python-dotenv==1.0.0
 
 # Validación de datos
 pydantic==2.6.1
+pydantic[email]
 
 # Docker 
 docker==6.1.3
