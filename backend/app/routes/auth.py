@@ -5,7 +5,7 @@ from sqlalchemy.future import select
 from app.core.database import get_db
 from app.models.models import User
 from app.schemas.auth_schemas import UserCreate, UserLogin, Token
-from app.utils.security import hash_password, verify_password, create_acces_token
+from app.utils.security import hash_password, verify_password, create_access_token
 
 from datetime import datetime
 
@@ -56,5 +56,5 @@ async def login_user(form_data: UserLogin, db: AsyncSession = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"}
         )
     #Crear token JWT
-    access_token = create_acces_token(data={"sub": user.email, "user_id": user.id})
+    access_token = create_access_token(data={"sub": user.email, "user_id": user.id})
     return {"access_token": access_token, "token_type": "bearer"}
