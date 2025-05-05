@@ -8,12 +8,12 @@ load_dotenv()
 
 #Configuración bd
 DATABASE_URL = os.getenv("DATABASE_URL")
-print(DATABASE_URL)
+
 
 #Motor async
 engine = create_async_engine(
     DATABASE_URL,
-    echo=True,
+    echo=False,  #Cambiar a True para mucho texto (ver sql)
     poolclass=NullPool,
 )
 

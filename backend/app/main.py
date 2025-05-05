@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.core.database import Base, engine
+import asyncio
 
 
 # Importar routers (los agregaremos luego)
@@ -25,6 +27,12 @@ app.add_middleware(
 @app.get("/")
 def root():
     return {"message": "🧘‍♀️ Bienvenido a la API de meditación"}
+
+# Para crear tablas para bd si no existen 
+@app.on_event("startup")
+async def startup():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 # Montar routers acá
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
