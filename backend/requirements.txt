@@ -5,12 +5,13 @@ uvicorn==0.27.0
 # Base de datos - ORM
 sqlalchemy==2.0.25
 asyncpg==0.29.0
-alembic==1.13.1
+alembic==1.13.1 
 
 # Auth y seguridad
 python-jose==3.3.0
 passlib==1.7.4
 bcrypt==4.1.2
+python-multipart
 
 # IA y recomendaciones(estadísticas)
 scikit-learn==1.4.0
