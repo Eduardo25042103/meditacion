@@ -4,8 +4,8 @@ from sqlalchemy.future import select
 
 from app.core.database import get_db
 from app.models.models import User
-from app.schemas.auth_schemas import UserCreate, UserLogin, Token
-from app.utils.security import hash_password, verify_password, create_access_token
+from app.schemas.auth_schemas import UserCreate, UserLogin, UserResponse, Token
+from app.utils.security import hash_password, verify_password, create_access_token, get_current_active_user, get_current_user
 
 from datetime import datetime
 
@@ -58,3 +58,17 @@ async def login_user(form_data: UserLogin, db: AsyncSession = Depends(get_db)):
     #Crear token JWT
     access_token = create_access_token(data={"sub": user.email, "user_id": user.id})
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_user_info(current_user: User = Depends(get_current_active_user)):
+    return current_user
+
+
+@router.get("/protected-resource")
+async def get_protected_resource(current_user: User = Depends(get_current_user)):
+    return {
+        "message": "Acceso autorizado",
+        "user_id": current_user.id,
+        "email": current_user.email
+    }

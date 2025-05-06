@@ -25,6 +25,6 @@ Pasos para configurar el backend:
 alembic init migrations
 alembic upgrade head
 docker-compose up --build
-sql -> docker exec -it postgres_db psql -U postgres
+sql -> docker exec -it postgres_db psql -U postgres -d meditation_db
 uvicorn app.main:app --reload
 
