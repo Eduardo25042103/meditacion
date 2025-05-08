@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from functools import wraps
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.models.models import User
@@ -86,11 +87,22 @@ async def get_current_user(token: str = Depends(oauth2_scheme),
     
     return user
 
+
 # Función para verificar si el usuario es activo
 async def get_current_active_user(current_user: User = Depends(get_current_user)):
     if not current_user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usuario inactivo"
+        )
+    return current_user
+
+
+# Dependencia para verificar si el usuario es admin
+async def check_admin_role(current_user: User = Depends(get_current_active_user)):
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Requiere privilegios de administrador"
         )
     return current_user

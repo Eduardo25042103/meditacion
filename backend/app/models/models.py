@@ -8,6 +8,7 @@ class User(Base):
     id = Column(Integer, primary_key = True)
     email = Column(String, unique=True, nullable=False)
     hashed_password = Column(String)
+    role = Column(String, default="user")  # 'user' o 'admin'
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     sessions = relationship("MeditationSession", back_populates="user")

@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from app.core.database import get_db
 from app.models.models import User
 from app.schemas.auth_schemas import UserCreate, UserLogin, UserResponse, Token
-from app.utils.security import hash_password, verify_password, create_access_token, get_current_active_user, get_current_user
+from app.utils.security import hash_password, verify_password, create_access_token, get_current_active_user, get_current_user, check_admin_role
 
 from datetime import datetime
 
@@ -32,6 +32,7 @@ async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
     new_user = User(
         email=user.email,
         hashed_password=hash_password(user.password),
+        role=user.role,
         created_at=datetime.utcnow()
     )
 
@@ -43,7 +44,7 @@ async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
 
     return {"message": "Usuario registrado correctamente ✅", "user_id": new_user.id} #De prueba actualmente xd
 
-
+#Para probar con el backend Swagger
 @router.post("/login", response_model=Token)
 async def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
     # Buscar usuario
@@ -57,7 +58,7 @@ async def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Async
             headers={"WWW-Authenticate": "Bearer"}
         )
     #Crear token JWT
-    access_token = create_access_token(data={"sub": user.email, "user_id": user.id})
+    access_token = create_access_token(data={"sub": user.email, "user_id": user.id, "role": user.role})
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -75,7 +76,7 @@ async def login_user_json(form_data: UserLogin, db: AsyncSession = Depends(get_d
             headers={"WWW-Authenticate": "Bearer"}
         )
     #Crear token JWT
-    access_token = create_access_token(data={"sub": user.email, "user_id": user.id})
+    access_token = create_access_token(data={"sub": user.email, "user_id": user.id, "role": user.role})
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -90,4 +91,14 @@ async def get_protected_resource(current_user: User = Depends(get_current_user))
         "message": "Acceso autorizado",
         "user_id": current_user.id,
         "email": current_user.email
+    }
+
+
+@router.get("/admin-only")
+async def admin_only_route(current_user: User = Depends(check_admin_role)):
+    return {
+        "message": "Acceso de admin concedido",
+        "user_id": current_user.id,
+        "email": current_user.email,
+        "role": current_user.role
     }
