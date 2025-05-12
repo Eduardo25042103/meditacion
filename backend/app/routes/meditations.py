@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 
 from app.core.database import get_db
@@ -18,7 +19,7 @@ async def list_meditations(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Meditation).options(
             # Eager load the type relationship
-            Meditation.meditation_type
+            selectinload(Meditation.meditation_type)
         )
     )
     return result.scalars().all()
@@ -38,12 +39,12 @@ async def create_meditation(
     # Validar que el tipo exista
     res = await db.execute(select(MeditationType).where(MeditationType.id == med_in.type_id))
     if not res.scalar_one_or_none():
-        raise HTTPException(status=400, detail="Tipo de meditación no válido")
-        new = Meditation(**med_in.dict())
-        db.add(new)
-        await db.commit()
-        await dbb.refresh(new)
-        return new
+        raise HTTPException(status_code=400, detail="Tipo de meditación no válido")
+    new = Meditation(**med_in.dict())
+    db.add(new)
+    await db.commit()
+    await db.refresh(new)
+    return new
 
 
 @router.put(
