@@ -81,7 +81,7 @@ async def update_meditation(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        # Buscar la meditación con su tipo ya cargado
+        # Buscar la meditación con su tipo ya cargado je :)
         res = await db.execute(
             select(Meditation)
             .options(selectinload(Meditation.meditation_type))
