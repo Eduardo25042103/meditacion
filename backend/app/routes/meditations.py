@@ -40,7 +40,9 @@ async def create_meditation(
 ):
     try:
         # Validar que el tipo exista
-        res = await db.execute(select(MeditationType).where(MeditationType.id == med_in.type_id))
+        res = await db.execute(
+            select(MeditationType).where(MeditationType.id == med_in.type_id)
+        )
         meditation_type = res.scalar_one_or_none()
         if not meditation_type:
             raise HTTPException(
@@ -54,15 +56,10 @@ async def create_meditation(
         await db.commit()
         await db.refresh(new)
         
-        # Obtener la meditación con su tipo
-        result = await db.execute(
-            select(Meditation)
-            .options(selectinload(Meditation.meditation_type))
-            .where(Meditation.id == new.id)
-        )
-        meditation_with_type = result.scalar_one()
+        # Cargar el tipo de meditación directamente en el objeto
+        new.meditation_type = meditation_type
         
-        return meditation_with_type
+        return new
         
     except Exception as e:
         # Capturar cualquier otra excepción, hacer rollback y lanzar error amigable
@@ -84,8 +81,12 @@ async def update_meditation(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        # Buscar la meditación
-        res = await db.execute(select(Meditation).where(Meditation.id == meditation_id))
+        # Buscar la meditación con su tipo ya cargado
+        res = await db.execute(
+            select(Meditation)
+            .options(selectinload(Meditation.meditation_type))
+            .where(Meditation.id == meditation_id)
+        )
         obj = res.scalar_one_or_none()
         if not obj: 
             raise HTTPException(
@@ -99,11 +100,14 @@ async def update_meditation(
             type_res = await db.execute(
                 select(MeditationType).where(MeditationType.id == update_data["type_id"])
             )
-            if not type_res.scalar_one_or_none():
+            meditation_type = type_res.scalar_one_or_none()
+            if not meditation_type:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Tipo de meditación con ID {update_data['type_id']} no encontrado"
                 )
+            # Actualizar la relación directamente
+            obj.meditation_type = meditation_type
         
         # Actualizar campos
         for field, val in update_data.items():
@@ -113,15 +117,7 @@ async def update_meditation(
         await db.commit()
         await db.refresh(obj)
         
-        # Obtener la meditación actualizada con su tipo
-        result = await db.execute(
-            select(Meditation)
-            .options(selectinload(Meditation.meditation_type))
-            .where(Meditation.id == meditation_id)
-        )
-        updated_meditation = result.scalar_one()
-        
-        return updated_meditation
+        return obj
         
     except Exception as e:
         # Capturar cualquier otra excepción, hacer rollback y lanzar error amigable
