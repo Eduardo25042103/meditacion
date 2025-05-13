@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from typing import List, Dict, Any
+from typing import List
 
 
 from app.core.database import get_db
@@ -14,42 +14,17 @@ from app.utils.security import check_admin_role
 router = APIRouter(prefix="/meditations", tags=["Meditations"])
 
 
-# Función auxiliar para convertir un modelo a diccionario
-def meditation_to_dict(meditation, meditation_type=None) -> Dict[str, Any]:
-    """Convierte un objeto Meditation y su MeditationType relacionado a un diccionario."""
-    if meditation_type is None:
-        meditation_type = meditation.meditation_type
-    
-    return {
-        "id": meditation.id,
-        "title": meditation.title,
-        "duration": meditation.duration,
-        "difficulty": meditation.difficulty,
-        "type_id": meditation.type_id,
-        "meditation_type": {
-            "id": meditation_type.id,
-            "name": meditation_type.name,
-            "description": meditation_type.description,
-            "duration_range": meditation_type.duration_range,
-            "tags": meditation_type.tags
-        }
-    }
-
-
 @router.get("/", response_model=List[MeditationOut])
 async def list_meditations(db: AsyncSession = Depends(get_db)):
-    # Cargamos las meditaciones con sus relaciones
+    # Carga las meditaciones con sus relaciones
     result = await db.execute(
         select(Meditation).options(
             selectinload(Meditation.meditation_type)
         )
     )
     
-    # Convertir los resultados a diccionarios
-    meditations = []
-    for med in result.scalars().all():
-        meditations.append(meditation_to_dict(med))
-    
+    # Usa directamente el modelo de respuesta Pydantic
+    meditations = result.scalars().all()
     return meditations
 
 
@@ -63,20 +38,39 @@ async def create_meditation(
     med_in: MeditationCreate,
     db: AsyncSession = Depends(get_db)
 ):
-    # Validar que el tipo exista
-    res = await db.execute(select(MeditationType).where(MeditationType.id == med_in.type_id))
-    meditation_type = res.scalar_one_or_none()
-    if not meditation_type:
-        raise HTTPException(status_code=400, detail="Tipo de meditación no válido")
-    
-    # Crear la meditación
-    new = Meditation(**med_in.dict())
-    db.add(new)
-    await db.commit()
-    await db.refresh(new)
-    
-    # Convertir a diccionario para la respuesta
-    return meditation_to_dict(new, meditation_type)
+    try:
+        # Validar que el tipo exista
+        res = await db.execute(select(MeditationType).where(MeditationType.id == med_in.type_id))
+        meditation_type = res.scalar_one_or_none()
+        if not meditation_type:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail=f"Tipo de meditación con ID {med_in.type_id} no encontrado"
+            )
+        
+        # Crear la meditación
+        new = Meditation(**med_in.dict())
+        db.add(new)
+        await db.commit()
+        await db.refresh(new)
+        
+        # Obtener la meditación con su tipo
+        result = await db.execute(
+            select(Meditation)
+            .options(selectinload(Meditation.meditation_type))
+            .where(Meditation.id == new.id)
+        )
+        meditation_with_type = result.scalar_one()
+        
+        return meditation_with_type
+        
+    except Exception as e:
+        # Capturar cualquier otra excepción, hacer rollback y lanzar error amigable
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al crear la meditación: {str(e)}"
+        )
 
 
 @router.put(
@@ -89,27 +83,53 @@ async def update_meditation(
     med_in: MeditationUpdate,
     db: AsyncSession = Depends(get_db)
 ):
-    # Buscar la meditación
-    res = await db.execute(select(Meditation).where(Meditation.id == meditation_id))
-    obj = res.scalar_one_or_none()
-    if not obj: 
-        raise HTTPException(status_code=404, detail="Meditación no encontrada")
-    
-    # Actualizar campos
-    update_data = med_in.dict(exclude_unset=True)
-    for field, val in update_data.items():
-        setattr(obj, field, val)
-    
-    # Guardar cambios
-    await db.commit()
-    await db.refresh(obj)
-    
-    # Obtener tipo de meditación
-    type_res = await db.execute(select(MeditationType).where(MeditationType.id == obj.type_id))
-    meditation_type = type_res.scalar_one_or_none()
-    
-    # Convertir a diccionario para la respuesta
-    return meditation_to_dict(obj, meditation_type)
+    try:
+        # Buscar la meditación
+        res = await db.execute(select(Meditation).where(Meditation.id == meditation_id))
+        obj = res.scalar_one_or_none()
+        if not obj: 
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail=f"Meditación con ID {meditation_id} no encontrada"
+            )
+        
+        # Validar el type_id si se está actualizando
+        update_data = med_in.dict(exclude_unset=True)
+        if "type_id" in update_data:
+            type_res = await db.execute(
+                select(MeditationType).where(MeditationType.id == update_data["type_id"])
+            )
+            if not type_res.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Tipo de meditación con ID {update_data['type_id']} no encontrado"
+                )
+        
+        # Actualizar campos
+        for field, val in update_data.items():
+            setattr(obj, field, val)
+        
+        # Guardar cambios
+        await db.commit()
+        await db.refresh(obj)
+        
+        # Obtener la meditación actualizada con su tipo
+        result = await db.execute(
+            select(Meditation)
+            .options(selectinload(Meditation.meditation_type))
+            .where(Meditation.id == meditation_id)
+        )
+        updated_meditation = result.scalar_one()
+        
+        return updated_meditation
+        
+    except Exception as e:
+        # Capturar cualquier otra excepción, hacer rollback y lanzar error amigable
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al actualizar la meditación: {str(e)}"
+        )
 
 
 @router.delete(
@@ -121,9 +141,20 @@ async def delete_meditation(
     meditation_id: int,
     db: AsyncSession = Depends(get_db)
 ):
-    res = await db.execute(select(Meditation).where(Meditation.id == meditation_id))
-    obj = res.scalar_one_or_none()
-    if not obj:
-        raise HTTPException(status_code=404, detail="Meditación no encontrada")
-    await db.delete(obj)
-    await db.commit()
+    try:
+        res = await db.execute(select(Meditation).where(Meditation.id == meditation_id))
+        obj = res.scalar_one_or_none()
+        if not obj:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail=f"Meditación con ID {meditation_id} no encontrada"
+            )
+        await db.delete(obj)
+        await db.commit()
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al eliminar la meditación: {str(e)}"
+        )
