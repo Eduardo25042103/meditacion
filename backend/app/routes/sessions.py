@@ -79,7 +79,7 @@ async def list_sessions(
         res = await db.execute(query)
         sessions = res.scalars().all()
         
-        # Asegurarse de que todos los objetos relacionados estén accesibles
+        # Se asegura de que todos los objetos relacionados estén accesibles
         # antes de salir del contexto asíncrono
         for sess in sessions:
             _ = sess.meditation
@@ -122,7 +122,7 @@ async def get_session(
                 detail="Sesión no encontrada"
             )
         
-        # Asegurarse de que todos los objetos relacionados estén accesibles
+        # Se asegura de que todos los objetos relacionados estén accesibles
         # antes de salir del contexto asíncrono
         _ = sess.meditation
         if sess.meditation:
@@ -131,7 +131,7 @@ async def get_session(
         return sess
     
     except HTTPException:
-        # Re-lanzar excepciones HTTP que ya hemos definido
+        # Re-lanzar excepciones HTTP que ya definí
         raise
     
     except Exception as e:
