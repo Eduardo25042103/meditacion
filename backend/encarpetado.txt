@@ -22,9 +22,12 @@ Stats/Graphs: Pandas para análisis y Matplotlib/Plotly para gráficos.
 
 ----------------------------------------
 Pasos para configurar el backend:
+source venv/bin/activate
+pip install -r requirements.txt
 alembic init migrations
 alembic upgrade head
 docker-compose up --build
+docker-compose up -d //base de datos
 sql -> docker exec -it postgres_db psql -U postgres -d meditation_db
 uvicorn app.main:app --reload
 

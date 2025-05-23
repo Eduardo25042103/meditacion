@@ -8,7 +8,7 @@ from datetime import datetime
 from app.core.database import get_db
 from app.models.models import MeditationSession, Meditation, User
 from app.schemas.session_schemas import SessionCreate, SessionOut
-from app.utils.security import get_current_user
+from app.utils.security import get_current_user, check_admin_role
 
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
@@ -139,3 +139,56 @@ async def get_session(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al obtener la sesión de meditación: {str(e)}"
         )
+
+@router.patch(
+    "/{sessions_id}",
+    response_model=SessionOut,
+    summary="Retomar o actualizar parcialmente una meditación propia    "
+)
+async def update_session(
+    session_id: int,
+    payload: SessionCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    #Traer la sesión y verificar que sea del usuario
+    stmt = select(MeditationSession).where(MeditationSession.id == session_id)
+    res = await db.execute(stmt)
+    session = res.scalar_one_or_none()
+
+    if not session or session.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sesión no encontrada"
+        )
+
+    #Actualizar solo los campos permitidos
+    session.duration_completed = payload.duration_completed
+    await db.commit()
+    await db.refresh(session)
+    return session
+
+
+@router.delete(
+    "/{session_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Eliminar una sesión (solo admin)",
+    dependencies=[Depends(check_admin_role)],
+    
+)
+async def delete_session(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(MeditationSession).where(MeditationSession.id == session_id)
+    res = await db.execute(stmt)
+    session = res.scalar_one_or_none()
+
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sesión no encontrada"
+        )
+    
+    await db.delete(session)
+    await db.commit()
