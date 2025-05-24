@@ -141,7 +141,7 @@ async def get_session(
         )
 
 @router.patch(
-    "/{sessions_id}",
+    "/{session_id}",
     response_model=SessionOut,
     summary="Retomar o actualizar parcialmente una meditación propia    "
 )
@@ -151,22 +151,45 @@ async def update_session(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    #Traer la sesión y verificar que sea del usuario
-    stmt = select(MeditationSession).where(MeditationSession.id == session_id)
-    res = await db.execute(stmt)
-    session = res.scalar_one_or_none()
+    try:
+        #Traer la sesión y verificar que sea del usuario
+        stmt = (
+                select(MeditationSession)
+                .options(
+                    selectinload(MeditationSession.meditation)
+                    .selectinload(Meditation.meditation_type)
+                )
+                .where(MeditationSession.id == session_id)
+        )    
+        res = await db.execute(stmt)
+        session = res.scalar_one_or_none()
+    
+        if not session or session.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Sesión no encontrada"
+            )
+    
+        #Actualizar solo los campos permitidos
+        session.duration_completed = payload.duration_completed
+        await db.commit()
+        await db.refresh(session)
 
-    if not session or session.user_id != current_user.id:
+        #Asegura que las relaciones sean accesibles antes de la serializacion
+        _ = session.meditation
+        if session.meditation:
+            _ = session.meditation.meditation_type
+
+        return session
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        await db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Sesión no encontrada"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al actualizar la sesión de meditación: {str(e)}"
         )
-
-    #Actualizar solo los campos permitidos
-    session.duration_completed = payload.duration_completed
-    await db.commit()
-    await db.refresh(session)
-    return session
 
 
 @router.delete(
