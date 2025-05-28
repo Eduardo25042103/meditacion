@@ -9,6 +9,8 @@ from app.core.database import get_db
 from app.models.models import MeditationSession, Meditation, User
 from app.schemas.session_schemas import SessionCreate, SessionOut
 from app.utils.security import get_current_user, check_admin_role
+from app.services.preferences_service import update_user_preferences
+
 
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
@@ -47,6 +49,10 @@ async def create_session(
         # Cargar la meditación para la respuesta
         # Importante: asignamos el objeto meditation que ya tiene meditation_type cargado
         new_sess.meditation = meditation
+
+        #Actualizamos preferencias
+        await update_user_preferences(current_user.id, db)
+
         
         return new_sess
     
