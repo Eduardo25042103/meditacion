@@ -19,7 +19,7 @@ async def update_user_preferences(user_id: int, db: AsyncSession):
         .where(MeditationSession.user_id == user_id)
     )
     res = await db.execute(stmt)
-    sessions = res.scalar().all()
+    sessions = res.scalars().all()
     if not sessions:
         return #nada que hacer
     
