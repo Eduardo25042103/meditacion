@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -71,16 +70,22 @@ async def list_sessions(
     current_user: User = Depends(get_current_user),
 ):
     try:
-        # Cargar sesiones con sus relaciones completas
-        query = (
+        # Base query con todas las relaciones cargadas
+        base_query = (
             select(MeditationSession)
             .options(
                 selectinload(MeditationSession.meditation)
-                .selectinload(Meditation.meditation_type)
+                .selectinload(Meditation.meditation_type),
+                selectinload(MeditationSession.user)  # Cargar usuario para admins
             )
-            .where(MeditationSession.user_id == current_user.id)
             .order_by(MeditationSession.date.desc())
         )
+        
+        # Si es admin, ve todas las sesiones; si es usuario normal, solo las suyas
+        if current_user.role == "admin":
+            query = base_query
+        else:
+            query = base_query.where(MeditationSession.user_id == current_user.id)
         
         res = await db.execute(query)
         sessions = res.scalars().all()
@@ -91,6 +96,9 @@ async def list_sessions(
             _ = sess.meditation
             if sess.meditation:
                 _ = sess.meditation.meditation_type
+            # Para admins, también cargar info del usuario
+            if current_user.role == "admin":
+                _ = sess.user
                 
         return sessions
     
@@ -109,12 +117,13 @@ async def get_session(
 ):
     try:
         # Cargar sesión con sus relaciones
-        # Aseguramos que todas las relaciones necesarias estén cargadas completamente
+        # Asegura que todas las relaciones necesarias estén cargadas completamente
         query = (
             select(MeditationSession)
             .options(
                 selectinload(MeditationSession.meditation)
-                .selectinload(Meditation.meditation_type)
+                .selectinload(Meditation.meditation_type),
+                selectinload(MeditationSession.user)  # Para admins
             )
             .where(MeditationSession.id == session_id)
         )
@@ -122,10 +131,17 @@ async def get_session(
         res = await db.execute(query)
         sess = res.scalar_one_or_none()
         
-        if not sess or sess.user_id != current_user.id:
+        # Verificar existencia de la sesión
+        if not sess:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Sesión no encontrada"
+            )
+        
+        if current_user.role != "admin" and sess.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permisos para ver esta sesión"
             )
         
         # Se asegura de que todos los objetos relacionados estén accesibles
@@ -133,6 +149,7 @@ async def get_session(
         _ = sess.meditation
         if sess.meditation:
             _ = sess.meditation.meditation_type
+        _ = sess.user
             
         return sess
     
@@ -149,7 +166,7 @@ async def get_session(
 @router.patch(
     "/{session_id}",
     response_model=SessionOut,
-    summary="Retomar o actualizar parcialmente una meditación propia    "
+    summary="Retomar o actualizar parcialmente una meditación propia"
 )
 async def update_session(
     session_id: int,
@@ -158,35 +175,46 @@ async def update_session(
     current_user: User = Depends(get_current_user),
 ):
     try:
-        #Traer la sesión y verificar que sea del usuario
+        # Traer la sesión y verificar que sea del usuario
         stmt = (
-                select(MeditationSession)
-                .options(
-                    selectinload(MeditationSession.meditation)
-                    .selectinload(Meditation.meditation_type)
-                )
-                .where(MeditationSession.id == session_id)
+            select(MeditationSession)
+            .options(
+                selectinload(MeditationSession.meditation)
+                .selectinload(Meditation.meditation_type)
+            )
+            .where(MeditationSession.id == session_id)
         )    
         res = await db.execute(stmt)
         session = res.scalar_one_or_none()
     
-        if not session or session.user_id != current_user.id:
+        if not session:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Sesión no encontrada"
             )
+            
+        # Solo el propietario de la sesión o un admin pueden actualizarla
+        if session.user_id != current_user.id and current_user.role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Solo puedes actualizar tus propias sesiones"
+            )
     
-        #Actualizar solo los campos permitidos
+        # Actualizar solo los campos permitidos
         session.duration_completed = payload.duration_completed
         await db.commit()
         await db.refresh(session)
 
-        #Asegura que las relaciones sean accesibles antes de la serializacion
+        # Actualizar preferencias después de modificar la sesión
+        await update_user_preferences(session.user_id, db)
+
+        # Asegura que las relaciones sean accesibles antes de la serialización
         _ = session.meditation
         if session.meditation:
             _ = session.meditation.meditation_type
 
         return session
+        
     except HTTPException:
         raise
 
@@ -203,21 +231,40 @@ async def update_session(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Eliminar una sesión (solo admin)",
     dependencies=[Depends(check_admin_role)],
-    
 )
 async def delete_session(
     session_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(MeditationSession).where(MeditationSession.id == session_id)
-    res = await db.execute(stmt)
-    session = res.scalar_one_or_none()
+    try:
+        # Buscar la sesión que se va a eliminar
+        stmt = select(MeditationSession).where(MeditationSession.id == session_id)
+        res = await db.execute(stmt)
+        session = res.scalar_one_or_none()
 
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Sesión no encontrada"
-        )
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Sesión no encontrada"
+            )
+        
+        # Guardar el user_id antes de eliminar la sesión
+        user_id = session.user_id
+        
+        # Eliminar la sesión
+        await db.delete(session)
+        await db.commit()
+        
+        # Actualizar las preferencias del usuario después de la eliminación
+        await update_user_preferences(user_id, db)
+        
+    except HTTPException:
+        # Re-lanzar excepciones HTTP que ya definí
+        raise
     
-    await db.delete(session)
-    await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al eliminar la sesión de meditación: {str(e)}"
+        )
