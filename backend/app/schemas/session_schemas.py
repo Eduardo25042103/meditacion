@@ -20,10 +20,17 @@ class SessionCreate(BaseModel):
 
 class SessionOut(BaseModel):
     id: int
-    user_id: int
     meditation: Optional[MeditationOut]
     duration_completed: int
     date: datetime
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class SessionAllOut(SessionOut):
+    user_id: int
     user: Optional[UserResponse] = None
 
     class Config:

@@ -53,7 +53,7 @@ async def generate_preferences(
         
         res = await db.execute(
             select(UserPreferences)
-            .where(UserPreferences.id == current_user.id)
+            .where(UserPreferences.user_id == current_user.id)
         )
         prefs = res.scalar_one_or_none()
     

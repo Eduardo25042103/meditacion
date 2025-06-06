@@ -3,10 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from datetime import datetime
+from typing import List
 
 from app.core.database import get_db
 from app.models.models import MeditationSession, Meditation, User
-from app.schemas.session_schemas import SessionCreate, SessionOut
+from app.schemas.session_schemas import SessionCreate, SessionOut, SessionAllOut
 from app.utils.security import get_current_user, check_admin_role
 from app.services.preferences_service import update_user_preferences
 
@@ -64,28 +65,23 @@ async def create_session(
         )
 
 
-@router.get("/", response_model=list[SessionOut])
+@router.get("/", response_model=list[SessionOut])               
 async def list_sessions(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     try:
-        # Base query con todas las relaciones cargadas
-        base_query = (
+        # Lista de sesiones de usuario
+        query = (
             select(MeditationSession)
             .options(
                 selectinload(MeditationSession.meditation)
-                .selectinload(Meditation.meditation_type),
-                selectinload(MeditationSession.user)  # Cargar usuario para admins
+                .selectinload(Meditation.meditation_type)
             )
+            .where(MeditationSession.user_id == current_user.id)
             .order_by(MeditationSession.date.desc())
         )
-        
-        # Si es admin, ve todas las sesiones; si es usuario normal, solo las suyas
-        if current_user.role == "admin":
-            query = base_query
-        else:
-            query = base_query.where(MeditationSession.user_id == current_user.id)
+
         
         res = await db.execute(query)
         sessions = res.scalars().all()
@@ -96,10 +92,44 @@ async def list_sessions(
             _ = sess.meditation
             if sess.meditation:
                 _ = sess.meditation.meditation_type
-            # Para admins, también cargar info del usuario
-            if current_user.role == "admin":
-                _ = sess.user
-                
+
+        return sessions
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener las sesiones de meditación: {str(e)}"
+        )
+
+
+@router.get("/all", response_model=List[SessionAllOut])
+async def list_all_sessions(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(check_admin_role), #Solo admins
+):
+    # Lista todas las sesiones con sus respectivos usuarios - Solo admins
+    try:
+        query = (
+            select(MeditationSession)
+            .options(
+                selectinload(MeditationSession.meditation)
+                .selectinload(Meditation.meditation_type),
+                selectinload(MeditationSession.user)
+            )
+            .order_by(MeditationSession.date.desc())
+        )
+
+        res = await db.execute(query)
+        sessions = res.scalars().all()
+
+
+        # Asegura que todos los objetos relacionados estén accesibles 
+        for sess in sessions:
+            _ = sess.meditation
+            if sess.meditation:
+                _ = sess.meditation.meditation_type
+            _ = sess.user
+
         return sessions
     
     except Exception as e:
@@ -123,9 +153,11 @@ async def get_session(
             .options(
                 selectinload(MeditationSession.meditation)
                 .selectinload(Meditation.meditation_type),
-                selectinload(MeditationSession.user)  # Para admins
             )
-            .where(MeditationSession.id == session_id)
+            .where(
+                MeditationSession.id == session_id,
+                MeditationSession.user_id == current_user.id                   
+            )
         )
         
         res = await db.execute(query)
@@ -138,19 +170,12 @@ async def get_session(
                 detail="Sesión no encontrada"
             )
         
-        if current_user.role != "admin" and sess.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tienes permisos para ver esta sesión"
-            )
-        
         # Se asegura de que todos los objetos relacionados estén accesibles
         # antes de salir del contexto asíncrono
         _ = sess.meditation
         if sess.meditation:
             _ = sess.meditation.meditation_type
-        _ = sess.user
-            
+
         return sess
     
     except HTTPException:
@@ -162,7 +187,50 @@ async def get_session(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al obtener la sesión de meditación: {str(e)}"
         )
+@router.get("/all/{session_id}", response_model=SessionAllOut)
+async def get_all_sessions(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(check_admin_role)
+):
+    # Obtener cualquier sesión (admins only)
+    try:
+        query = (
+            select(MeditationSession)
+            .options(
+                selectinload(MeditationSession.meditation)
+                .selectinload(Meditation.meditation_type),
+                selectinload(MeditationSession.user)
+            )
+            .where(MeditationSession.id == session_id)
+        )
 
+        res = await db.execute(query)
+        sess = res.scalar_one_or_none()
+
+        if not sess:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Sesión no encontrada"
+            )
+        
+        # Asegurar que todos los objetos relacionados estén accesibles 
+        _ = sess.meditation
+        if sess.meditation:
+            _ = sess.meditation.meditation_type
+        _ = sess.user
+        
+        return sess
+    
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener la sesión de meditación: {str(e)}"
+        )
+    
 @router.patch(
     "/{session_id}",
     response_model=SessionOut,
