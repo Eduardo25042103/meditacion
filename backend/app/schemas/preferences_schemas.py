@@ -17,8 +17,7 @@ class PreferencesOut(PreferencesCreate):
         orm_mode = True
 
 
-class PreferencesAllOut(PreferencesCreate):
-    id: int
+class PreferencesAllOut(PreferencesOut):
     user_id: int
     user: Optional[UserResponse] = None
     

@@ -24,7 +24,7 @@ async def get_preferences(
     )
     prefs = res.scalar_one_or_none()
     if not prefs:
-        raise HTTPException(status_code=404, detail="No se encontraron preferencias")
+        raise HTTPException(status_code=404, detail="No se encontraron preferencias, Completa al menos una sesión de meditación para conocer tus preferencias.")
     return prefs
 
 
@@ -47,5 +47,33 @@ async def generate_preferences(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    await update_user_preferences(current_user.id, db)
-    return {"message": "Preferencias actualizadas exitosamente"}
+
+    try:
+        await update_user_preferences(current_user.id, db)
+        
+        res = await db.execute(
+            select(UserPreferences)
+            .where(UserPreferences.id == current_user.id)
+        )
+        prefs = res.scalar_one_or_none()
+    
+        if not prefs:
+            return{
+                "message": "No se pudieron generar preferencias. Completa al menos una sesión de meditación.",
+                "prefences_created": False
+            }
+        else: 
+            return{
+                "message": "Preferencias actualizadas exitosamente",
+                "preferences_created": True,
+                "preferences": {
+                    "preferred_duration": prefs.preferred_duration,
+                    "preferred_time": prefs.preferred_time,
+                    "goals": prefs.goals
+                }
+            }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al generar preferencias: {str(e)}"
+        )

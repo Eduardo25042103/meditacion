@@ -20,8 +20,18 @@ async def update_user_preferences(user_id: int, db: AsyncSession):
     )
     res = await db.execute(stmt)
     sessions = res.scalars().all()
+
+    # Busca preferencias existentes
+    stmt2 = select(UserPreferences).where(UserPreferences.user_id == user_id)
+    res2 = await db.execute(stmt2)
+    prefs = res2.scalar_one_or_none()
+
+    # Si no hay sesiones, se eliminan las preferencias
     if not sessions:
-        return #nada que hacer
+        if prefs:
+            await db.delete(prefs)
+            await db.commit()
+        return 
     
 
     # Duración promedio
@@ -53,11 +63,7 @@ async def update_user_preferences(user_id: int, db: AsyncSession):
 
 
     # Upsert en UserPreferences
-    stmt2 = select(UserPreferences).where(UserPreferences.user_id == user_id)
-    res2 = await db.execute(stmt2)
-    prefs = res2.scalar_one_or_none()
-
-
+    
     if prefs:
         prefs.preferred_duration = pref_duration
         prefs.preferred_time = pref_time
