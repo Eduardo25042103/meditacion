@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, field_validator
 from datetime import datetime, timezone
 from typing import Optional
 from app.schemas.meditation_schemas import MeditationOut
+from app.schemas.auth_schemas import UserResponse
 
 
 class SessionCreate(BaseModel):
@@ -19,10 +20,11 @@ class SessionCreate(BaseModel):
 
 class SessionOut(BaseModel):
     id: int
+    user_id: int
     meditation: Optional[MeditationOut]
     duration_completed: int
     date: datetime
-
+    user: Optional[UserResponse] = None
 
     class Config:
         orm_mode = True

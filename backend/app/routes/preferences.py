@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models.models import UserPreferences
-from app.schemas.preferences_schemas import PreferencesOut
-from app.utils.security import get_current_user
+from app.schemas.preferences_schemas import PreferencesAllOut, PreferencesOut
+from app.utils.security import get_current_user, check_admin_role
 from app.services.preferences_service import update_user_preferences
 
 
@@ -26,6 +26,20 @@ async def get_preferences(
     if not prefs:
         raise HTTPException(status_code=404, detail="No se encontraron preferencias")
     return prefs
+
+
+@router.get("/all", response_model=list[PreferencesAllOut])
+async def get_all_preferences(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(check_admin_role)  # Solo para admins
+):
+    """Endpoint para que los admins vean todas las preferencias de usuarios"""
+    res = await db.execute(
+        select(UserPreferences)
+        .options(selectinload(UserPreferences.user))  # Cargar info del usuario
+    )
+    all_preferences = res.scalars().all()
+    return all_preferences
 
 
 @router.post("/generate", status_code=200)
