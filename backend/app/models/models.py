@@ -56,6 +56,9 @@ class UserStats(Base):
     total_minutes = Column(Integer, default=0)
     current_streak = Column(Integer, default=0) # Rachas diarias
     longest_streak = Column(Integer, default=0)
+    total_sessions = Column(Integer, default=0)
+    average_session_duration = Column(Float, default=0.0)
+    last_updated = Column(DateTime, default=datetime.utcnow)
     user = relationship("User", back_populates="stats")
 
 
