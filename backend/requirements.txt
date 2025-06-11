@@ -18,6 +18,15 @@ python-multipart
 scikit-learn==1.4.0
 nltk==3.8.1
 pandas==2.1.4
+numpy>=1.24.0
+
+# Para gráficos
+matplotlib>=3.7.0
+plotly>=5.15.0
+seaborn>=0.12.0
+
+# Para exportar gráficos
+kaleido>=0.2.1
 
 # Tareas asíncronas (notificaciones)
 celery==5.3.6
