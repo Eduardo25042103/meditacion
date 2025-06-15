@@ -60,7 +60,7 @@ async def calculate_user_stats(user_id: int, db: AsyncSession) -> Optional[UserS
         user_stats.current_streak = current_streak
         user_stats.longest_streak = longest_streak
         # Solo actualizar si existen las columnas
-        if hasattr(user_stats, 'total_session'):
+        if hasattr(user_stats, 'total_sessions'):
             user_stats.total_sessions = total_sessions
         if hasattr(user_stats, 'average_session_duration'):
             user_stats.average_session_duration = average_duration
@@ -312,7 +312,7 @@ async def group_sessions_by_week(sessions: List[MeditationSession]) -> List[Week
             most_used_type=most_used_type    
         ))
 
-        return weekly_stats
+    return weekly_stats
     
 
 async def group_sessions_by_month(sessions: List[MeditationSession]) -> List[MonthlyStatsOut]:
@@ -324,7 +324,7 @@ async def group_sessions_by_month(sessions: List[MeditationSession]) -> List[Mon
     df = pd.DataFrame([{
         'date': s.date,
         'duration': s.duration_completed,
-        'meditation_type': s.meditation.meditation_type.name if s.meditation and s.meditation_meditation_type else "Unknown"
+        'meditation_type': s.meditation.meditation_type.name if s.meditation and s.meditation.meditation_type else "Unknown"
     } for s in sessions])
 
     df['date'] = pd.to_datetime(df['date'])
@@ -361,6 +361,8 @@ async def group_sessions_by_month(sessions: List[MeditationSession]) -> List[Mon
             most_used_type=most_used_type,
             streak_days=streak_days
         ))
+
+    return monthly_stats
 
 
 def calculate_monthly_streak(daily_sessions: pd.Series) -> int:
@@ -399,6 +401,7 @@ async def analyze_user_progress(sessions: List[MeditationSession], days: int) ->
     df = pd.DataFrame([{
         'date': s.date,
         'duration': s.duration_completed,
+        'hour': s.date.hour,
         'meditation_type': s.meditation.meditation_type.name if s.meditation and s.meditation_type else "Unknown"
     } for s in sessions])
 

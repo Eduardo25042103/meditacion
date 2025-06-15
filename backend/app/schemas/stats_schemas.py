@@ -8,7 +8,7 @@ class UserStatsBase(BaseModel):
     total_minutes: int = Field(default=0, description="Total de minutos meditados")
     current_streak: int = Field(default=0, description="Racha actual de días consecutivos")
     longest_streak: int = Field(default=0, description="Racha más larga de días consecutivos")
-    total_session: int = Field(default=0, description="Total de sesiones completadas")
+    total_sessions: int = Field(default=0, description="Total de sesiones completadas")
     average_session_duration: float = Field(default=0.0, description="Duración promedio por sesión")
 
 
@@ -40,7 +40,7 @@ class MonthlyStatsOut(BaseModel):
     total_minutes: int = Field(description="Minutos totales del mes")
     total_sessions: int = Field(description="Sesiones totales del mes")
     average_duration: float = Field(description="Duración promedio por sesión")
-    days_praticed: int = Field(description="Días que meditó en el mes")
+    days_practiced: int = Field(description="Días que meditó en el mes")
     most_used_type: Optional[str] = Field(description="Tipo de meditación más usado")
     streak_days: int = Field(description="Días consecutivos en el mes")
 
