@@ -1,17 +1,16 @@
 import pandas as pd
-import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from datetime import datetime, timedelta, timezone
-from typing import List, Dict, Any, Optional, Tuple
-from collections import Counter
+from datetime import datetime, timedelta
+from typing import List, Optional, Tuple
+
 
 from app.models.models import (
-    UserStats, MeditationSession, User, Meditation, MeditationType,
+    UserStats, MeditationSession, User, Meditation,
 )
 from app.schemas.stats_schemas import (
-    UserStatsOut, StatsAnalysisOut, WeeklyStatsOut,
+    StatsAnalysisOut, WeeklyStatsOut,
     MonthlyStatsOut, ProgressStatsOut, ChartOut, ChartDataPoint,
 )
 
@@ -458,8 +457,8 @@ async def analyze_user_progress(sessions: List[MeditationSession], days: int) ->
     )
 
 
-async def generate_stats_charts(user_id: int, chart_type: str, db: AsyncSession) -> Dict[str, Any]:
-    """Generar datos para gráficos"""
+async def generate_stats_charts(user_id: int, chart_type: str, db: AsyncSession) -> ChartOut:
+    """Generar datos para gráficos usando schemas apropiados"""
 
     # Obtener sesiones
     result = await db.execute(
@@ -474,7 +473,14 @@ async def generate_stats_charts(user_id: int, chart_type: str, db: AsyncSession)
     sessions = result.scalars().all()
 
     if not sessions:
-        return {"message": "No hay datos para generar gráficos", "data": []}
+        return ChartOut(
+            chart_type="empty",
+            title="Sin datos disponibles",
+            data=[],
+            labels=None,
+            colors=None,
+            metadata={"message": "No hay datos para generar gráficos"}
+        )
     
     # Crear DataFrame
     df = pd.DataFrame([{
@@ -488,30 +494,56 @@ async def generate_stats_charts(user_id: int, chart_type: str, db: AsyncSession)
     if chart_type == "progress":
         # Gráfico de progreso temporal
         daily_totals = df.groupby(df['date'].dt.date)['duration'].sum().reset_index()
-        data = [
-            {"x": row['date'].isoformat(), "y": row['duration']}
+        
+        data_points = [
+            ChartDataPoint(
+                x=row['date'].isoformat(),
+                y=row['duration'],
+                label=f"{row['duration']} min"
+            )
             for _, row in daily_totals.iterrows()
         ]
-        return {
-            "chart_type": "line",
-            "title": "Progreso de Meditación Diaria",
-            "data": data,
-            "x_label": "Fecha",
-            "y_label": "Minutos"
-        }
+        
+        return ChartOut(
+            chart_type="line",
+            title="Progreso de Meditación Diaria",
+            data=data_points,
+            labels=["Fecha", "Minutos"],
+            colors=["#4F46E5"],
+            metadata={
+                "total_days": len(daily_totals),
+                "avg_minutes": daily_totals['duration'].mean()
+            }
+        )
     
     elif chart_type == "types":
         # Gráfico de distribución por tipos
         type_totals = df.groupby('meditation_type')['duration'].sum()
-        data = [
-            {"x": type_name, "y": minutes}
+        
+        # Colores predefinidos para tipos
+        colors = ["#4F46E5", "#059669", "#DC2626", "#D97706", "#7C3AED"]
+        
+        data_points = [
+            ChartDataPoint(
+                x=type_name,
+                y=int(minutes),
+                label=f"{type_name}: {minutes} min"
+            )
             for type_name, minutes in type_totals.items()
         ]
-        return {
-            "chart_type": "pie",
-            "title": "Distribución por tipo de meditación",
-            "data": data
-        }
+        
+        return ChartOut(
+            chart_type="pie",
+            title="Distribución por Tipo de Meditación",
+            data=data_points,
+            labels=list(type_totals.index),
+            colors=colors[:len(type_totals)],
+            metadata={
+                "total_types": len(type_totals),
+                "most_used": type_totals.idxmax(),
+                "total_minutes": type_totals.sum()
+            }
+        )
     
     elif chart_type == "weekly":
         # Gráfico semanal
@@ -519,21 +551,71 @@ async def generate_stats_charts(user_id: int, chart_type: str, db: AsyncSession)
         weekly_totals = df.groupby('week')['duration'].sum().reset_index()
         weekly_totals['week_str'] = weekly_totals['week'].astype(str)
 
-        data = [
-            {"x": row['week_str'], "y": row['duration']}
+        data_points = [
+            ChartDataPoint(
+                x=row['week_str'],
+                y=int(row['duration']),
+                label=f"Semana {row['week_str']}: {row['duration']} min"
+            )
             for _, row in weekly_totals.iterrows()
         ]
-        return {
-            "chart_type": "bar",
-            "title": "Minutos por Semana",
-            "data": data,
-            "x_label": "Semana",
-            "y_label": "Minutos"
-        }
+        
+        return ChartOut(
+            chart_type="bar",
+            title="Minutos por Semana",
+            data=data_points,
+            labels=["Semana", "Minutos"],
+            colors=["#059669"],
+            metadata={
+                "total_weeks": len(weekly_totals),
+                "avg_weekly": weekly_totals['duration'].mean(),
+                "best_week": weekly_totals.loc[weekly_totals['duration'].idxmax(), 'week_str']
+            }
+        )
+    
+    elif chart_type == "monthly":
+        # Gráfico mensual
+        df['month'] = df['date'].dt.to_period('M')
+        monthly_totals = df.groupby('month')['duration'].sum().reset_index()
+        monthly_totals['month_str'] = monthly_totals['month'].dt.strftime('%Y-%m')
+
+        data_points = [
+            ChartDataPoint(
+                x=row['month_str'],
+                y=int(row['duration']),
+                label=f"{row['month_str']}: {row['duration']} min"
+            )
+            for _, row in monthly_totals.iterrows()
+        ]
+        
+        return ChartOut(
+            chart_type="bar",
+            title="Minutos por Mes",
+            data=data_points,
+            labels=["Mes", "Minutos"],
+            colors=["#DC2626"],
+            metadata={
+                "total_months": len(monthly_totals),
+                "avg_monthly": monthly_totals['duration'].mean(),
+                "growth_trend": "improving" if monthly_totals['duration'].iloc[-1] > monthly_totals['duration'].iloc[0] else "stable"
+            }
+        )
     
     else:
-        return {"message": "Tipo de gráfico no válido", "data": []}
+        return ChartOut(
+            chart_type="error",
+            title="Tipo de gráfico no válido",
+            data=[],
+            labels=None,
+            colors=None,
+            metadata={"error": f"Tipo '{chart_type}' no soportado"}
+        )
 
+
+# También actualizar el endpoint para usar el tipo correcto
+async def get_user_charts(user_id: int, chart_type: str, db: AsyncSession) -> ChartOut:
+    """Endpoint mejorado que retorna ChartOut"""
+    return await generate_stats_charts(user_id, chart_type, db)
 
 async def refresh_all_user_stats(db: AsyncSession) -> int:
     """Recalcular estadísticas de todos los usuarios"""
