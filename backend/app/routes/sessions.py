@@ -11,7 +11,6 @@ from app.utils.security import get_current_user, check_admin_role
 from app.services.preferences_service import update_user_preferences
 
 
-
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
 

@@ -4,7 +4,7 @@ from app.core.database import Base, engine
 
 
 # Importar routers (los agregaremos luego)
-from app.routes import auth, meditation_types, meditations, sessions, preferences
+from app.routes import auth, meditation_types, meditations, sessions, preferences, stats
 # from app.routes import auth, meditations, users, etc
 
 app = FastAPI(
@@ -39,5 +39,5 @@ app.include_router(meditation_types.router)
 app.include_router(meditations.router)
 app.include_router(sessions.router)
 app.include_router(preferences.router)
-
+app.include_router(stats.router)
 
