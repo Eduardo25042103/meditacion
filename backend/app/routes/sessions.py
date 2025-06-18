@@ -268,6 +268,9 @@ async def update_session(
     
         # Actualizar solo los campos permitidos
         session.duration_completed = payload.duration_completed
+        #Para develop luego elimnar o comentar
+        session.meditation_id = payload.meditation_id
+        session.date = payload.date
         await db.commit()
         await db.refresh(session)
 

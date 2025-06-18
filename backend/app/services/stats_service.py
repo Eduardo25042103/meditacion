@@ -501,8 +501,8 @@ async def generate_stats_charts(user_id: int, chart_type: str, db: AsyncSession)
         data_points = [
             ChartDataPoint(
                 x=row['date'].isoformat(),
-                y=row['duration'],
-                label=f"{row['duration']} min"
+                y=float(row['duration']), 
+                label=f"{int(row['duration'])} min"
             )
             for _, row in daily_totals.iterrows()
         ]
@@ -514,8 +514,8 @@ async def generate_stats_charts(user_id: int, chart_type: str, db: AsyncSession)
             labels=["Fecha", "Minutos"],
             colors=["#4F46E5"],
             metadata={
-                "total_days": len(daily_totals),
-                "avg_minutes": daily_totals['duration'].mean()
+                "total_days": int(len(daily_totals)),
+                "avg_minutes": float(daily_totals['duration'].mean())
             }
         )
     
@@ -528,9 +528,9 @@ async def generate_stats_charts(user_id: int, chart_type: str, db: AsyncSession)
         
         data_points = [
             ChartDataPoint(
-                x=type_name,
-                y=int(minutes),
-                label=f"{type_name}: {minutes} min"
+                x=str(type_name),
+                y=float(minutes),  
+                label=f"{type_name}: {int(minutes)} min"
             )
             for type_name, minutes in type_totals.items()
         ]
@@ -539,12 +539,12 @@ async def generate_stats_charts(user_id: int, chart_type: str, db: AsyncSession)
             chart_type="pie",
             title="Distribución por Tipo de Meditación",
             data=data_points,
-            labels=list(type_totals.index),
+            labels=[str(label) for label in type_totals.index], 
             colors=colors[:len(type_totals)],
             metadata={
-                "total_types": len(type_totals),
-                "most_used": type_totals.idxmax(),
-                "total_minutes": type_totals.sum()
+                "total_types": int(len(type_totals)),
+                "most_used": str(type_totals.idxmax()),
+                "total_minutes": float(type_totals.sum())
             }
         )
     
@@ -556,9 +556,9 @@ async def generate_stats_charts(user_id: int, chart_type: str, db: AsyncSession)
 
         data_points = [
             ChartDataPoint(
-                x=row['week_str'],
-                y=int(row['duration']),
-                label=f"Semana {row['week_str']}: {row['duration']} min"
+                x=str(row['week_str']),
+                y=float(row['duration']), 
+                label=f"Semana {row['week_str']}: {int(row['duration'])} min"
             )
             for _, row in weekly_totals.iterrows()
         ]
@@ -570,9 +570,9 @@ async def generate_stats_charts(user_id: int, chart_type: str, db: AsyncSession)
             labels=["Semana", "Minutos"],
             colors=["#059669"],
             metadata={
-                "total_weeks": len(weekly_totals),
-                "avg_weekly": weekly_totals['duration'].mean(),
-                "best_week": weekly_totals.loc[weekly_totals['duration'].idxmax(), 'week_str']
+                "total_weeks": int(len(weekly_totals)),
+                "avg_weekly": float(weekly_totals['duration'].mean()),
+                "best_week": str(weekly_totals.loc[weekly_totals['duration'].idxmax(), 'week_str'])
             }
         )
     
@@ -584,9 +584,9 @@ async def generate_stats_charts(user_id: int, chart_type: str, db: AsyncSession)
 
         data_points = [
             ChartDataPoint(
-                x=row['month_str'],
-                y=int(row['duration']),
-                label=f"{row['month_str']}: {row['duration']} min"
+                x=str(row['month_str']),
+                y=float(row['duration']), 
+                label=f"{row['month_str']}: {int(row['duration'])} min"
             )
             for _, row in monthly_totals.iterrows()
         ]
@@ -598,9 +598,9 @@ async def generate_stats_charts(user_id: int, chart_type: str, db: AsyncSession)
             labels=["Mes", "Minutos"],
             colors=["#DC2626"],
             metadata={
-                "total_months": len(monthly_totals),
-                "avg_monthly": monthly_totals['duration'].mean(),
-                "growth_trend": "improving" if monthly_totals['duration'].iloc[-1] > monthly_totals['duration'].iloc[0] else "stable"
+                "total_months": int(len(monthly_totals)),
+                "avg_monthly": float(monthly_totals['duration'].mean()),
+                "growth_trend": "improving" if float(monthly_totals['duration'].iloc[-1]) > float(monthly_totals['duration'].iloc[0]) else "stable"
             }
         )
     
