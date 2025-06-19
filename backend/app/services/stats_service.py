@@ -402,7 +402,7 @@ async def analyze_user_progress(sessions: List[MeditationSession], days: int) ->
         'date': s.date,
         'duration': s.duration_completed,
         'hour': s.date.hour,
-        'meditation_type': s.meditation.meditation_type.name if s.meditation and s.meditation_type else "Unknown"
+        'meditation_type': s.meditation.meditation_type.name if s.meditation and s.meditation.meditation_type else "Unknown"
     } for s in sessions])
 
     df['date'] = pd.to_datetime(df['date'])
